@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>展開ダイス迷宮 · UNFOLD DUNGEON</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <!-- 顶部导航与全局信息栏 -->
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-emblem" aria-hidden="true">
+          <svg viewBox="0 0 32 32" width="26" height="26">
+            <rect x="11" y="3" width="9" height="9" rx="1.5" fill="none" stroke="currentColor" stroke-width="2"/>
+            <rect x="2" y="12" width="9" height="9" rx="1.5" fill="none" stroke="currentColor" stroke-width="2"/>
+            <rect x="11" y="12" width="9" height="9" rx="1.5" fill="currentColor" fill-opacity="0.28" stroke="currentColor" stroke-width="2"/>
+            <rect x="20" y="12" width="9" height="9" rx="1.5" fill="none" stroke="currentColor" stroke-width="2"/>
+            <rect x="11" y="21" width="9" height="9" rx="1.5" fill="none" stroke="currentColor" stroke-width="2"/>
+          </svg>
+        </div>
+        <div>
+          <h1 class="brand-title"><span data-i18n="app.title">展開ダイス迷宮</span> <span class="brand-en">UNFOLD DUNGEON</span></h1>
+          <p class="brand-sub" data-i18n="app.sub">投掷定底 · 旋转展开铺路 · 分岔规避风险 · 魔塔数值对决</p>
+        </div>
+      </div>
+
+      <div class="stage-strip" id="stageStrip">
+        <div class="stage-pill">
+          <span class="label" data-i18n="hud.stage">当前层数</span>
+          <strong id="stageNameText"></strong>
+        </div>
+        <div class="stage-pill dice-counter-pill">
+          <span class="label" data-i18n="hud.diceLeft">剩余骰子</span>
+          <div class="dice-pips" id="dicePips"></div>
+          <strong id="diceLeftText"></strong>
+        </div>
+        <div class="stage-pill">
+          <span class="label" data-i18n="hud.minSteps">距终点邻格最短步数</span>
+          <strong id="minStepsText"></strong>
+        </div>
+      </div>
+
+      <div class="topbar-actions">
+        <button class="btn btn-ghost btn-sm btn-lang" id="btnLang" title="切换语言 / 言語切替">中文</button>
+        <button class="btn btn-ghost btn-sm" id="btnHelp" data-i18n="hud.help">玩法说明</button>
+        <button class="btn btn-ghost btn-sm" id="btnPreviewWorkshop" data-i18n="hud.workshop">预览骰子工坊</button>
+        <button class="btn btn-ghost btn-sm" id="btnRestartStage" data-i18n="hud.restart">重开本层</button>
+        <button class="btn btn-ghost btn-sm" id="btnNewRun" data-i18n="hud.newRun">新游戏</button>
+      </div>
+    </header>
+
+    <!-- 主体三栏布局 -->
+    <main class="workspace">
+      <!-- 左栏：角色状态、Boss胜算评估、悬停详情、战斗事件日志 -->
+      <aside class="panel panel-left">
+        <section class="card hero-card">
+          <div class="card-header">
+            <h2 data-i18n="panel.hero">探索者状态</h2>
+            <span class="badge badge-gold" id="heroGoldBadge">0</span>
+          </div>
+
+          <div class="hp-block">
+            <div class="hp-label-row">
+              <span data-i18n="panel.hpLabel">生命值 HP</span>
+              <strong id="heroHpText"></strong>
+            </div>
+            <div class="hp-bar-track">
+              <div class="hp-bar-fill" id="heroHpBar" style="width: 100%"></div>
+            </div>
+          </div>
+
+          <div class="stat-grid">
+            <div class="stat-box">
+              <span class="stat-label" data-i18n="panel.atkLabel">攻击 ATK</span>
+              <strong class="stat-value atk-color" id="heroAtkText">12</strong>
+            </div>
+            <div class="stat-box">
+              <span class="stat-label" data-i18n="panel.defLabel">防御 DEF</span>
+              <strong class="stat-value def-color" id="heroDefText">4</strong>
+            </div>
+            <div class="stat-box">
+              <span class="stat-label" data-i18n="panel.foughtLabel">已战 / 规避</span>
+              <strong class="stat-value" id="combatCountText">0 / 0</strong>
+            </div>
+          </div>
+        </section>
+
+        <!-- Boss 实时战损测算 -->
+        <section class="card boss-forecast-card" id="bossForecastCard">
+          <div class="card-header">
+            <h2 id="bossTitleText"></h2>
+            <span class="badge" id="bossVerdictBadge"></span>
+          </div>
+          <div class="boss-stats-row">
+            <span>HP <b id="bossHpText"></b></span>
+            <span>ATK <b id="bossAtkText"></b></span>
+            <span>DEF <b id="bossDefText"></b></span>
+          </div>
+          <div class="boss-sim-note" id="bossSimText"></div>
+        </section>
+
+        <!-- 悬停格子 / 骰面精准检定面板 -->
+        <section class="card inspector-card" id="inspectorCard">
+          <div class="card-header">
+            <h2 id="inspectorTitle" data-i18n="panel.insTitle">格子 / 骰面检定</h2>
+            <span class="badge badge-muted" id="inspectorTag" data-i18n="panel.insTag">悬停查看</span>
+          </div>
+          <div class="inspector-body" id="inspectorBody" data-i18n="panel.insDefault"></div>
+        </section>
+
+        <!-- 行动记录 -->
+        <section class="card log-card">
+          <div class="card-header">
+            <h2 data-i18n="panel.logTitle">探索日志</h2>
+            <span class="sub-hint" data-i18n="panel.logSub">单向无回头</span>
+          </div>
+          <ul class="log-list" id="logList"></ul>
+        </section>
+      </aside>
+
+      <!-- 中栏：操作阶段条 + 9x9 正方形网格地图 -->
+      <section class="board-center">
+        <div class="phase-bar" id="phaseBar">
+          <div class="phase-info">
+            <div class="phase-steps">
+              <span class="p-step active" data-step="ROLL" data-i18n="phase.step1">1. 投掷定底</span>
+              <span class="p-sep">/</span>
+              <span class="p-step" data-step="PLACE" data-i18n="phase.step2">2. 放置底面</span>
+              <span class="p-sep">/</span>
+              <span class="p-step" data-step="UNFOLD" data-i18n="phase.step3">3. 旋转与展开</span>
+              <span class="p-sep">/</span>
+              <span class="p-step" data-step="MOVE" data-i18n="phase.step4">4. 移动与结算</span>
+            </div>
+            <p class="phase-desc" id="phaseDescText"></p>
+          </div>
+
+          <div class="phase-controls" id="phaseControls">
+            <!-- 动态按钮组由 game.js 渲染 -->
+          </div>
+        </div>
+
+        <div class="board-wrapper">
+          <div class="grid-board" id="gridBoard" role="grid" aria-label="9x9 board"></div>
+        </div>
+
+        <div class="board-legend">
+          <span class="legend-item"><i class="dot dot-start"></i><span data-i18n="legend.start">出生点 (0,0)</span></span>
+          <span class="legend-item"><i class="dot dot-empty-road"></i><span data-i18n="legend.empty">空地（安全通行）</span></span>
+          <span class="legend-item"><i class="dot dot-combat"></i><span data-i18n="legend.combat">战斗</span></span>
+          <span class="legend-item"><i class="dot dot-treasure"></i><span data-i18n="legend.treasure">宝物</span></span>
+          <span class="legend-item"><i class="dot dot-heal"></i><span data-i18n="legend.heal">回复</span></span>
+          <span class="legend-item"><i class="dot dot-event"></i><span data-i18n="legend.event">奇遇</span></span>
+          <span class="legend-item"><i class="dot dot-boss"></i><span data-i18n="legend.boss">终点 Boss (8,8)</span></span>
+        </div>
+      </section>
+
+      <!-- 右栏：骰袋选择 + 投掷前/当前朝向十字展开图(1对6) + 3D骰子 + 路径策略提示 -->
+      <aside class="panel panel-right">
+        <section class="card cube-stage-card">
+          <div class="card-header">
+            <h2 id="activeDieTitle">1号寻宝骰</h2>
+            <span class="badge badge-accent" id="rolledBottomBadge"></span>
+          </div>
+
+          <!-- 4颗骰子序列标签（投掷前可点击查看或切换本回合要用的骰子） -->
+          <div class="dice-bag-tabs" id="diceBagTabs"></div>
+
+          <!-- 重点：大号十字型六面展开图（标号 1~6，一对六/二对五/三对四） -->
+          <div class="net-reference-wrap">
+            <div class="net-ref-title">
+              <span id="crossModeLabel"></span>
+              <span id="unfoldProgressText"></span>
+            </div>
+            <div class="large-cross-grid" id="miniCrossGrid">
+              <!-- 由 game.js 填充 北/西/底(中心)/东/南/顶 -->
+            </div>
+          </div>
+
+          <!-- 3D 立体骰子辅助预览 -->
+          <div class="cube-viewport">
+            <div class="compass-ring" aria-hidden="true">
+              <span class="c-dir c-north" data-i18n="c.north">北(上)</span>
+              <span class="c-dir c-south" data-i18n="c.south">南(下)</span>
+              <span class="c-dir c-west" data-i18n="c.west">西(左)</span>
+              <span class="c-dir c-east" data-i18n="c.east">东(右)</span>
+            </div>
+            <div class="cube-scene">
+              <div class="cube-3d" id="cube3d">
+                <div class="cube-face face-front" data-cube-slot="south"></div>
+                <div class="cube-face face-back" data-cube-slot="north"></div>
+                <div class="cube-face face-right" data-cube-slot="east"></div>
+                <div class="cube-face face-left" data-cube-slot="west"></div>
+                <div class="cube-face face-top" data-cube-slot="up"></div>
+                <div class="cube-face face-bottom" data-cube-slot="down"></div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="card rule-guard-card">
+          <div class="card-header">
+            <h2 data-i18n="panel.guardTitle">键位操作与路径规避计算</h2>
+          </div>
+          <div class="guard-metrics" id="guardMetrics">
+            <!-- 动态展示键位提示与剩余非战斗格上限 vs 距终点最短步数 -->
+          </div>
+        </section>
+      </aside>
+    </main>
+  </div>
+
+  <!-- 通用弹窗层（宝物三选一 / 奇遇事件 / 战斗播报 / 骰子改造工坊 / 结算 / 规则说明） -->
+  <div class="modal-backdrop hidden" id="modalBackdrop">
+    <div class="modal-dialog" id="modalDialog">
+      <!-- 动态内容 -->
+    </div>
+  </div>
+
+  <script src="i18n.js"></script>
+  <script src="game.js"></script>
+</body>
+</html>
